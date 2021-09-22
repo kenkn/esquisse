@@ -1,9 +1,10 @@
 import tkinter as tk
-INIT_WIDTH = 2
-INIT_HEIGHT = 3
+INIT_WIDTH = 3
+INIT_HEIGHT = 2
 INIT_AREASIZE = 12
 MAGNIFICATION = 1000
 OVAL_QUANTITY_LIMIT = 100
+IS_MOVING = False   # 楕円が移動中かどうか(移動中: True, 楕円作っている: False)
 
 class Oval:
     canvas = None
@@ -18,24 +19,49 @@ class Oval:
         self.areasize = areasize
         self.width = width
         self.height = height
+        self.deleted = False    # 楕円がdeleteされたかどうか(deleteされていればTrue)
         self.id = self.canvas.create_oval(self.start_x, self.start_y, self.end_x, self.end_y, outline='black', fill='', width=9)
         self.canvas.tag_bind(self.id, '<2>', self.delete)
 
+    def bind_move(self):
+        # 楕円が移動できるようにキーを割り当て
+        self.canvas.tag_bind(self.id, '<1>', self.drag_start)   # クリックし始め
+        self.canvas.tag_bind(self.id, '<Button1-Motion>', self.dragging)    # ドラッグ中
+
+    # クリックし始め
+    def drag_start(self, event):
+        self.center_x = event.x
+        self.center_y = event.y
+
+    # ドラッグ中
+    def dragging(self, event):
+        x1 = event.x
+        y1 = event.y
+        # 楕円の移動
+        Oval.canvas.move(self.id, x1-self.center_x, y1-self.center_y)
+        # 値の更新
+        self.center_x = x1
+        self.center_y = y1
+        self.start_x = self.center_x - self.width / 2
+        self.start_y = self.center_y - self.height / 2
+        self.end_x = self.center_x + self.width / 2
+        self.end_y = self.center_y + self.height / 2
+
     def delete(self, event):
+        self.deleted = True
         self.canvas.delete(self.id)
 
 class App(tk.Frame):
     def __init__(self, master=None):
         super().__init__(master)
         self.master = master
-        # self.oval = [None for _ in range(OVAL_QUANTITY_LIMIT)]
         self.master.title('esquisse')
         self.pack()
         self.create_widgets()
     
     def create_widgets(self):
         # キャンバスの初期化
-        self.canvas = tk.Canvas(self, bg='white', width=500, height=500)
+        self.canvas = tk.Canvas(self, bg='white', width=1000, height=700)
 
         # 面積のテキストボックス
         self.areasize_lbl = tk.Label(text='面積')
@@ -69,34 +95,53 @@ class App(tk.Frame):
         # 移動ボタン
         self.move_button = tk.Button(self, text='移動', command=self.press_move)
         self.move_button.place(x=470, y=0)
+        
+        # 楕円ボタン
+        self.move_button = tk.Button(self, text='楕円', command=self.press_oval)
+        self.move_button.place(x=510, y=0)
 
         self.canvas.grid(row=1, column=0, columnspan=4)
-        self.canvas.bind(sequence='<1>', func=self.create_oval)
+
+        self.oval = []
         Oval.canvas = self.canvas
 
+       
     def areasize_update(self):
         # 面積，縦横比の値を更新
         self.areasize = self.areasize_box.get()
         self.height_relative = self.height_relative_box.get()
         self.width_relative = self.width_relative_box.get()
 
+    # 「楕円」ボタンが押された時
+    def press_oval(self):
+        global IS_MOVING
+        IS_MOVING = False
+        self.canvas.bind(sequence='<1>', func=self.create_oval)
+
+    # 「移動」ボタンが押された時
     def press_move(self):
-        self.canvas.bind()
+        global IS_MOVING
+        IS_MOVING = True
+        for o in self.oval:
+            if o.deleted == False:
+                o.bind_move()
 
     def create_oval(self, event):
         center_x = event.x
         center_y = event.y
         # areasize, width_relative, height_relativeの値をInt型に変換
         try:
-            size = float(self.areasize) * MAGNIFICATION
-            w = float(self.width_relative)
-            h = float(self.height_relative)
-            width  = ((size * h) / w) ** 0.5  # 楕円の横の長さ
-            height = ((size * w) / h) ** 0.5  # 楕円の縦の長さ
-            dist_x = ((size * w) / (4 * h)) ** 0.5    # 中心から楕円の端までの距離(x方向)
-            dist_y = ((size * h) / (4 * w)) ** 0.5    # 中心から楕円の端までの距離(y方向)
-            Oval(center_x, center_y, center_x-dist_x, center_y-dist_y, center_x+dist_x, center_y+dist_y, size, width, height)
-            # self.oval.append(oval)
+            global IS_MOVING
+            if IS_MOVING == False:
+                size = float(self.areasize) * MAGNIFICATION
+                w = float(self.width_relative)
+                h = float(self.height_relative)
+                width  = ((size * h) / w) ** 0.5  # 楕円の横の長さ
+                height = ((size * w) / h) ** 0.5  # 楕円の縦の長さ
+                dist_x = ((size * w) / (4 * h)) ** 0.5    # 中心から楕円の端までの距離(x方向)
+                dist_y = ((size * h) / (4 * w)) ** 0.5    # 中心から楕円の端までの距離(y方向)
+                ov = Oval(center_x, center_y, center_x-dist_x, center_y-dist_y, center_x+dist_x, center_y+dist_y, size, width, height)
+                self.oval.append(ov)
             self.canvas.delete('error_message')
         except ValueError:
             self.canvas.create_text(100, 100, text='数値を入力してください', fill='red', tags='error_message')
