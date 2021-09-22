@@ -6,18 +6,29 @@ MAGNIFICATION = 1000
 OVAL_QUANTITY_LIMIT = 100
 
 class Oval:
-    def __init__(self, center_x, center_y, areasize, width, height):
+    canvas = None
+
+    def __init__(self, center_x, center_y, start_x, start_y, end_x, end_y, areasize, width, height):
         self.center_x = center_x
         self.center_y = center_y
+        self.start_x = start_x
+        self.start_y = start_y
+        self.end_x = end_x
+        self.end_y = end_y
         self.areasize = areasize
         self.width = width
         self.height = height
+        self.id = self.canvas.create_oval(self.start_x, self.start_y, self.end_x, self.end_y, outline='black', fill='', width=9)
+        self.canvas.tag_bind(self.id, '<2>', self.delete)
+
+    def delete(self, event):
+        self.canvas.delete(self.id)
 
 class App(tk.Frame):
     def __init__(self, master=None):
         super().__init__(master)
         self.master = master
-        self.oval = [None for _ in range(OVAL_QUANTITY_LIMIT)]
+        # self.oval = [None for _ in range(OVAL_QUANTITY_LIMIT)]
         self.master.title('esquisse')
         self.pack()
         self.create_widgets()
@@ -61,6 +72,7 @@ class App(tk.Frame):
 
         self.canvas.grid(row=1, column=0, columnspan=4)
         self.canvas.bind(sequence='<1>', func=self.create_oval)
+        Oval.canvas = self.canvas
 
     def areasize_update(self):
         # 面積，縦横比の値を更新
@@ -83,9 +95,8 @@ class App(tk.Frame):
             height = ((size * w) / h) ** 0.5  # 楕円の縦の長さ
             dist_x = ((size * w) / (4 * h)) ** 0.5    # 中心から楕円の端までの距離(x方向)
             dist_y = ((size * h) / (4 * w)) ** 0.5    # 中心から楕円の端までの距離(y方向)
-            oval = Oval(center_x, center_y, size, width, height)
-            self.oval.append(oval)
-            self.canvas.create_oval(center_x-dist_x, center_y-dist_y, center_x+dist_x, center_y+dist_y, outline='black', width=1)
+            Oval(center_x, center_y, center_x-dist_x, center_y-dist_y, center_x+dist_x, center_y+dist_y, size, width, height)
+            # self.oval.append(oval)
             self.canvas.delete('error_message')
         except ValueError:
             self.canvas.create_text(100, 100, text='数値を入力してください', fill='red', tags='error_message')
